@@ -17,12 +17,14 @@ function productOfArrayExceptSelf(nums) {
   let output = Array(nums.length).fill(1);
   //we will fill the out put with all the left product and reuse it for right product
   for (let i = 0; i < nums.length; i++) {
+    //going left to right ------------->
     output[i] = leftProduct;
     leftProduct = leftProduct * nums[i];
   }
 
   let rightProduct = 1;
   for (let i = nums.length - 1; i >= 0; i--) {
+    //going right to left <------------
     output[i] = output[i] * rightProduct;
     rightProduct = rightProduct * nums[i];
   }
