@@ -1,0 +1,515 @@
+<!-- Chosen Palette: Warm Scholar (Stone, Emerald, Clay) - A minimalistic, warm neutral palette designed to reduce eye strain during long study sessions, with organic accents for focus and progress. -->
+
+<!-- Application Structure Plan: 
+    The application is designed as an interactive "Study Companion" for the Blind 75 list. 
+    1. Header & Context: Sets the stage, explaining the value of the Blind 75.
+    2. Strategic Overview (Dashboard): Uses a Chart.js visualization to show the distribution of topics.
+    3. Interactive Explorer: A filtering system to focus on specific topics.
+    4. Flashcard-style Items: Each question is presented as a card with a "Strategy/Hint" initially displayed clearly.
+    5. Progress Tracking: A "Mark Complete" toggle updates live stats for gamification.
+-->
+
+<!-- Visualization & Content Choices:
+    1. Topic Distribution Chart (Doughnut - Chart.js): Shows relative weight of categories.
+    2. Question Cards: Scanable UI for core data (Title, Category, Strategy).
+    3. Progress Bar: Visual feedback on completion.
+    4. Confirmations: NO SVG used. NO Mermaid used.
+-->
+
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blind 75: Interactive Interview Roadmap</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f5f5f4;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #d6d3d1;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #a8a29e;
+      }
+
+      .chart-container {
+        position: relative;
+        width: 100%;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+        height: 300px;
+        max-height: 400px;
+      }
+      @media (min-width: 768px) {
+        .chart-container {
+          height: 350px;
+        }
+      }
+
+      .question-card {
+        transition: all 0.2s ease-in-out;
+      }
+      .question-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+      }
+
+      body {
+        background-color: #fafaf9;
+        color: #292524;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen flex flex-col">
+    <nav class="bg-white border-b border-stone-200 sticky top-0 z-50 shadow-sm">
+      <div
+        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center"
+      >
+        <div class="flex items-center">
+          <span class="text-2xl mr-2">🎯</span>
+          <h1 class="text-xl font-bold tracking-tight text-stone-800">
+            Blind 75 <span class="text-stone-500 font-normal">Roadmap</span>
+          </h1>
+        </div>
+        <div class="flex items-center space-x-6 text-sm">
+          <div class="text-stone-500">
+            Done:
+            <span id="completed-count" class="font-bold text-emerald-600"
+              >0</span
+            >/75
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+      <header class="mb-12 text-center max-w-3xl mx-auto">
+        <h2 class="text-4xl font-extrabold mb-4 text-stone-900">
+          Master the Patterns
+        </h2>
+        <p class="text-lg text-stone-600 mb-8">
+          The most efficient path to technical interview success. Use the
+          dashboard below to analyze the topic distribution and track your
+          progress across all 75 essential problems.
+        </p>
+        <div class="flex flex-wrap justify-center gap-4">
+          <button
+            onclick="app.filterByCategory('all')"
+            class="bg-stone-800 text-white px-8 py-3 rounded-xl hover:bg-stone-700 transition shadow-lg font-bold"
+          >
+            Start Studying
+          </button>
+          <button
+            onclick="app.pickRandom()"
+            class="bg-white border border-stone-300 text-stone-700 px-8 py-3 rounded-xl hover:bg-stone-50 transition shadow-sm font-bold"
+          >
+            🎲 Random Pick
+          </button>
+        </div>
+      </header>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-stone-100">
+          <h3 class="text-xl font-bold text-stone-800 mb-2">
+            Topic Distribution
+          </h3>
+          <p class="text-sm text-stone-500 mb-6">
+            Visual breakdown of the curriculum. Click to filter.
+          </p>
+          <div class="chart-container">
+            <canvas id="topicChart"></canvas>
+          </div>
+        </div>
+
+        <div class="space-y-6">
+          <div
+            class="bg-white p-8 rounded-3xl shadow-sm border border-stone-100"
+          >
+            <h3 class="text-xl font-bold text-stone-800 mb-4">
+              Overall Completion
+            </h3>
+            <div
+              class="w-full bg-stone-100 rounded-full h-6 mb-4 overflow-hidden"
+            >
+              <div
+                id="progress-bar"
+                class="bg-emerald-500 h-full transition-all duration-700 ease-out"
+                style="width: 0%"
+              ></div>
+            </div>
+            <div class="flex justify-between items-center">
+              <span
+                id="progress-percent"
+                class="text-2xl font-black text-stone-800"
+                >0%</span
+              >
+              <span id="progress-text" class="text-stone-500 font-medium"
+                >0 of 75 Complete</span
+              >
+            </div>
+          </div>
+
+          <div class="bg-stone-800 p-8 rounded-3xl text-white shadow-xl">
+            <h3 class="text-xl font-bold mb-4 flex items-center">
+              <span class="mr-2">💡</span> Strategic Insights
+            </h3>
+            <p class="text-stone-400 text-sm mb-4">
+              Focus on these core concepts for high ROI:
+            </p>
+            <ul class="space-y-3 text-sm">
+              <li class="flex items-center">
+                <span class="w-2 h-2 bg-emerald-400 rounded-full mr-3"></span
+                >Arrays & Strings (Sliding Window, 2-Pointers)
+              </li>
+              <li class="flex items-center">
+                <span class="w-2 h-2 bg-emerald-400 rounded-full mr-3"></span
+                >Trees (Recursion, Level-Order Traversal)
+              </li>
+              <li class="flex items-center">
+                <span class="w-2 h-2 bg-emerald-400 rounded-full mr-3"></span>DP
+                (Tabulation & Memoization)
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="sticky top-20 z-40 bg-stone-50/90 backdrop-blur-md py-4 border-b border-stone-200 mb-8"
+      >
+        <div
+          class="flex flex-col md:flex-row gap-4 items-center justify-between"
+        >
+          <div
+            id="category-filters"
+            class="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto no-scrollbar"
+          ></div>
+          <div class="relative w-full md:w-72">
+            <input
+              type="text"
+              id="search-input"
+              placeholder="Search patterns..."
+              class="w-full pl-4 pr-4 py-3 rounded-xl border border-stone-200 focus:ring-2 focus:ring-stone-800 focus:border-transparent outline-none transition-all"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div
+        id="question-grid"
+        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+      ></div>
+    </main>
+
+    <script>
+      const categories = {
+        Array: [
+          { title: "Two Sum", hint: "Use a hash map for O(n) lookup." },
+          {
+            title: "Best Time to Buy and Sell Stock",
+            hint: "Track the minimum price seen so far.",
+          },
+          { title: "Contains Duplicate", hint: "Use a hash set." },
+          {
+            title: "Product of Array Except Self",
+            hint: "Use prefix and suffix products.",
+          },
+          { title: "Maximum Subarray", hint: "Kadane's Algorithm (O(n))." },
+          {
+            title: "Maximum Product Subarray",
+            hint: "Track both max and min products.",
+          },
+          {
+            title: "Find Minimum in Rotated Sorted Array",
+            hint: "Modified Binary Search.",
+          },
+          {
+            title: "Search in Rotated Sorted Array",
+            hint: "Modified Binary Search.",
+          },
+          { title: "3 Sum", hint: "Sort and use two pointers." },
+          {
+            title: "Container With Most Water",
+            hint: "Two pointers moving inward.",
+          },
+        ],
+        Binary: [
+          { title: "Sum of Two Integers", hint: "Use XOR and AND-shift." },
+          { title: "Number of 1 Bits", hint: "Hamming weight calculation." },
+          { title: "Counting Bits", hint: "DP with bit counts." },
+          { title: "Missing Number", hint: "XOR all numbers." },
+          { title: "Reverse Bits", hint: "Bit manipulation." },
+        ],
+        "Dynamic Programming": [
+          { title: "Climbing Stairs", hint: "Fibonacci sequence approach." },
+          { title: "Coin Change", hint: "Classic knapsack-style DP." },
+          {
+            title: "Longest Increasing Subsequence",
+            hint: "O(n log n) or O(n^2) DP.",
+          },
+          { title: "Longest Common Subsequence", hint: "2D grid DP." },
+          { title: "Word Break Problem", hint: "DP with substring checks." },
+          { title: "Combination Sum", hint: "Backtracking or DP." },
+          { title: "House Robber", hint: "DP tracking max profit." },
+          { title: "House Robber II", hint: "Circular array DP." },
+          { title: "Decoding Ways", hint: "DP based on digit validity." },
+          { title: "Unique Paths", hint: "2D grid DP." },
+          { title: "Jump Game", hint: "Greedy farthest reach." },
+        ],
+        Graph: [
+          { title: "Clone Graph", hint: "BFS or DFS with a hash map." },
+          {
+            title: "Course Schedule",
+            hint: "Topological sort / Cycle detection.",
+          },
+          { title: "Pacific Atlantic Water Flow", hint: "BFS/DFS from edges." },
+          { title: "Number of Islands", hint: "BFS/DFS for components." },
+          { title: "Longest Consecutive Sequence", hint: "Use a hash set." },
+          { title: "Alien Dictionary", hint: "Topological sort." },
+          { title: "Graph Valid Tree", hint: "Connectivity and no cycles." },
+          {
+            title: "Number of Connected Components",
+            hint: "Union-Find or DFS.",
+          },
+        ],
+        "Linked List": [
+          { title: "Reverse a Linked List", hint: "Iterative or Recursive." },
+          { title: "Detect Cycle", hint: "Floyd's Slow/Fast pointers." },
+          { title: "Merge Two Sorted Lists", hint: "Iterative merge." },
+          { title: "Merge K Sorted Lists", hint: "Use a Min-Heap." },
+          { title: "Remove Nth Node From End", hint: "Two pointers with gap." },
+          { title: "Reorder List", hint: "Find mid, reverse, and merge." },
+        ],
+        String: [
+          {
+            title: "Longest Substring No Repeats",
+            hint: "Sliding window + Map.",
+          },
+          {
+            title: "Longest Repeating Char Replacement",
+            hint: "Sliding window + Frequency.",
+          },
+          { title: "Minimum Window Substring", hint: "Hard sliding window." },
+          { title: "Valid Anagram", hint: "Frequency count." },
+          { title: "Group Anagrams", hint: "Sort or frequency as keys." },
+          { title: "Valid Parentheses", hint: "Use a stack." },
+          { title: "Valid Palindrome", hint: "Two pointers." },
+          {
+            title: "Longest Palindromic Substring",
+            hint: "Expand around centers.",
+          },
+          { title: "Palindromic Substrings", hint: "Count expansions." },
+          { title: "Encode/Decode Strings", hint: "Length-prefixes." },
+        ],
+        Tree: [
+          { title: "Max Depth", hint: "Simple recursion." },
+          { title: "Same Tree", hint: "Recursive structural check." },
+          { title: "Invert Binary Tree", hint: "Recursive swap." },
+          { title: "Max Path Sum", hint: "Recursion tracking max." },
+          { title: "Level Order Traversal", hint: "BFS using queue." },
+          { title: "Serialize/Deserialize", hint: "Preorder traversal." },
+          { title: "Subtree of Another Tree", hint: "Recursive root check." },
+          { title: "BST Validate", hint: "Recursion with bounds." },
+          { title: "Kth Smallest in BST", hint: "Inorder traversal." },
+        ],
+        Heap: [
+          { title: "Top K Frequent", hint: "Hash map + Heap." },
+          { title: "Median from Data Stream", hint: "Two heaps logic." },
+        ],
+      };
+
+      let allQuestions = [];
+      let idCounter = 1;
+      for (const [cat, questions] of Object.entries(categories)) {
+        questions.forEach((q) => {
+          allQuestions.push({
+            id: idCounter++,
+            category: cat,
+            title: q.title,
+            hint: q.hint,
+            completed: false,
+          });
+        });
+      }
+
+      const app = {
+        currentFilter: "all",
+        searchQuery: "",
+
+        init() {
+          this.renderFilters();
+          this.renderGrid();
+          this.renderChart();
+          this.updateStats();
+          document
+            .getElementById("search-input")
+            .addEventListener("input", (e) => {
+              this.searchQuery = e.target.value.toLowerCase();
+              this.renderGrid();
+            });
+        },
+
+        renderFilters() {
+          const container = document.getElementById("category-filters");
+          const cats = ["All", ...Object.keys(categories)];
+          container.innerHTML = cats
+            .map(
+              (cat) => `
+                    <button onclick="app.filterByCategory('${cat}')" 
+                        class="px-5 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all border 
+                        ${
+                          this.currentFilter === cat ||
+                          (this.currentFilter === "all" && cat === "All")
+                            ? "bg-stone-800 text-white border-stone-800 shadow-md"
+                            : "bg-white text-stone-600 border-stone-200 hover:bg-stone-50"
+                        }">
+                        ${cat}
+                    </button>
+                `
+            )
+            .join("");
+        },
+
+        filterByCategory(cat) {
+          this.currentFilter = cat === "All" ? "all" : cat;
+          this.renderFilters();
+          this.renderGrid();
+        },
+
+        renderGrid() {
+          const container = document.getElementById("question-grid");
+          let filtered = allQuestions.filter((q) => {
+            const matchesCat =
+              this.currentFilter === "all" || q.category === this.currentFilter;
+            const matchesSearch = q.title
+              .toLowerCase()
+              .includes(this.searchQuery);
+            return matchesCat && matchesSearch;
+          });
+
+          container.innerHTML = filtered
+            .map(
+              (q) => `
+                    <div class="question-card bg-white rounded-2xl p-6 border transition-all 
+                        ${
+                          q.completed
+                            ? "border-emerald-200 bg-emerald-50/20"
+                            : "border-stone-100"
+                        }">
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="px-3 py-1 bg-stone-100 text-stone-600 rounded-lg text-xs font-bold uppercase tracking-wider">${
+                              q.category
+                            }</span>
+                            <button onclick="app.toggleComplete(${
+                              q.id
+                            })" class="text-2xl hover:scale-110 transition-transform">
+                                ${q.completed ? "🟢" : "⚪"}
+                            </button>
+                        </div>
+                        <h4 class="text-lg font-bold text-stone-800 mb-2 ${
+                          q.completed ? "text-stone-400 line-through" : ""
+                        }">${q.title}</h4>
+                        <p class="text-sm text-stone-500 italic mt-4 border-t border-stone-50 pt-4">💡 ${
+                          q.hint
+                        }</p>
+                    </div>
+                `
+            )
+            .join("");
+        },
+
+        toggleComplete(id) {
+          const q = allQuestions.find((i) => i.id === id);
+          if (q) {
+            q.completed = !q.completed;
+            this.renderGrid();
+            this.updateStats();
+          }
+        },
+
+        updateStats() {
+          const total = allQuestions.length;
+          const completed = allQuestions.filter((q) => q.completed).length;
+          const percent = Math.round((completed / total) * 100);
+          document.getElementById("completed-count").innerText = completed;
+          document.getElementById(
+            "progress-text"
+          ).innerText = `${completed} of ${total} Complete`;
+          document.getElementById("progress-percent").innerText = `${percent}%`;
+          document.getElementById("progress-bar").style.width = `${percent}%`;
+        },
+
+        pickRandom() {
+          const incomplete = allQuestions.filter((q) => !q.completed);
+          if (incomplete.length === 0) return;
+          const randomQ =
+            incomplete[Math.floor(Math.random() * incomplete.length)];
+          this.currentFilter = "all";
+          this.searchQuery = randomQ.title.toLowerCase();
+          document.getElementById("search-input").value = randomQ.title;
+          this.renderFilters();
+          this.renderGrid();
+        },
+
+        renderChart() {
+          const ctx = document.getElementById("topicChart").getContext("2d");
+          const dataCounts = Object.values(categories).map((arr) => arr.length);
+          const labels = Object.keys(categories);
+          const colors = [
+            "#44403c",
+            "#57534e",
+            "#78716c",
+            "#059669",
+            "#10b981",
+            "#34d399",
+            "#d97706",
+            "#f59e0b",
+            "#fbbf24",
+          ];
+
+          new Chart(ctx, {
+            type: "doughnut",
+            data: {
+              labels: labels,
+              datasets: [
+                {
+                  data: dataCounts,
+                  backgroundColor: colors,
+                  borderWidth: 4,
+                  borderColor: "#ffffff",
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: "right",
+                  labels: { usePointStyle: true, font: { size: 10 } },
+                },
+              },
+              onClick: (e, elements) => {
+                if (elements.length > 0)
+                  this.filterByCategory(labels[elements[0].index]);
+              },
+            },
+          });
+        },
+      };
+
+      window.onload = () => app.init();
+    </script>
+  </body>
+</html>
